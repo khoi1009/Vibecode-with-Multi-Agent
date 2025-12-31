@@ -1,0 +1,10 @@
+# Vibecode Studio Requirements
+# Production-ready multi-agent development system
+
+# Core dependencies
+colorama>=0.4.6
+
+# For future enhancements
+# requests>=2.31.0  # HTTP client for API integrations
+# pyyaml>=6.0       # YAML configuration support
+# click>=8.1.0      # CLI framework (if upgrading from basic input)
