@@ -1,0 +1,37 @@
+# Include documentation
+include README.md
+include LICENSE
+include QUICKSTART_CLI.md
+include README_CLI.md
+include AI_TOOL_COMPATIBILITY.md
+include DOCUMENTATION_INDEX.md
+include IMPLEMENTATION_COMPLETE.md
+include VISUAL_WORKFLOW.md
+
+# Include config files
+include requirements.txt
+include setup.py
+include MANIFEST.in
+
+# Include all skills (CRITICAL - your expensive investment!)
+recursive-include skills *.md *.py *.txt *.json *.yaml *.yml
+recursive-include skills/*/references *.md
+recursive-include skills/*/scripts *.py *.txt
+
+# Include core modules
+recursive-include core *.py
+recursive-include agents *.py
+
+# Include docs
+recursive-include docs *.md
+
+# Exclude unwanted files
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude .git*
+exclude .gitignore
+recursive-exclude tests *
+recursive-exclude dist *
+recursive-exclude node_modules *
