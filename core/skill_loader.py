@@ -15,12 +15,20 @@ class Skill:
         self.path = path
         self.name = path.name
         self.skill_file = path / "SKILL.md"
+        self.references_dir = path / "references"
+        self.scripts_dir = path / "scripts"
         self.description = ""
         self.keywords = []
         self.content = ""
+        self.reference_files = []
+        self.script_files = []
         
         if self.skill_file.exists():
             self._parse_skill_file()
+        
+        # Load all reference files and scripts
+        self._load_references()
+        self._load_scripts()
     
     def _parse_skill_file(self):
         """Parse SKILL.md and extract metadata"""
@@ -45,6 +53,34 @@ class Skill:
         # If no keywords, extract from description and content
         if not self.keywords:
             self.keywords = self._extract_keywords(self.description + " " + content[:500])
+    
+    def _load_references(self):
+        """Load all reference markdown files from the references folder"""
+        if not self.references_dir.exists():
+            return
+        
+        # Find all .md files in references directory
+        for ref_file in self.references_dir.glob("*.md"):
+            self.reference_files.append(ref_file)
+        
+        print(f"[DEBUG] Loaded {len(self.reference_files)} reference files for {self.name}")
+    
+    def _load_scripts(self):
+        """Load all executable Python scripts from the scripts folder"""
+        if not self.scripts_dir.exists():
+            return
+        
+        # Find all .py files in scripts directory (excluding tests and __init__)
+        for script_file in self.scripts_dir.rglob("*.py"):
+            # Skip test files and __init__.py
+            if script_file.name.startswith("test_") or script_file.name == "__init__.py":
+                continue
+            # Skip files in __pycache__ or .coverage
+            if "__pycache__" in str(script_file) or ".coverage" in script_file.name:
+                continue
+            self.script_files.append(script_file)
+        
+        print(f"[DEBUG] Loaded {len(self.script_files)} executable scripts for {self.name}")
     
     def _extract_keywords(self, text: str) -> List[str]:
         """Extract relevant keywords from text"""
@@ -190,19 +226,66 @@ class SkillLoader:
         """Get a specific skill by name"""
         return self.skills.get(skill_name)
     
-    def load_skill_content(self, skill: Skill) -> str:
-        """Load full content of a skill"""
-        return skill.content
-    
-    def build_skills_context(self, selected_skills: List[Skill]) -> str:
+    def load_skill_content(self, skill: Skill, include_references: bool = True, include_scripts: bool = True) -> str:
         """
-        Build context string from selected skills
+        Load full content of a skill including all reference files AND executable scripts
+        
+        Args:
+            skill: The skill to load
+            include_references: Whether to include all reference markdown files (default: True)
+            include_scripts: Whether to include all executable Python scripts (default: True)
+        
+        Returns:
+            Complete skill content with all references AND automation scripts
+        """
+        full_content = skill.content
+        
+        # Include reference documentation
+        if include_references and skill.reference_files:
+            full_content += "\n\n# === DETAILED REFERENCES ===\n\n"
+            full_content += f"The following {len(skill.reference_files)} reference documents provide in-depth knowledge:\n\n"
+            
+            for ref_file in skill.reference_files:
+                try:
+                    ref_content = ref_file.read_text(encoding='utf-8')
+                    full_content += f"\n## Reference: {ref_file.stem}\n\n"
+                    full_content += ref_content
+                    full_content += "\n\n---\n\n"
+                except Exception as e:
+                    print(f"[WARNING] Could not load {ref_file.name}: {e}")
+        
+        # Include executable automation scripts
+        if include_scripts and skill.script_files:
+            full_content += "\n\n# === AUTOMATION SCRIPTS ===\n\n"
+            full_content += f"This skill includes {len(skill.script_files)} ready-to-use automation scripts:\n\n"
+            
+            for script_file in skill.script_files:
+                try:
+                    script_content = script_file.read_text(encoding='utf-8')
+                    relative_path = script_file.relative_to(skill.path)
+                    full_content += f"\n## Script: {relative_path}\n\n"
+                    full_content += f"**Purpose:** Automated tool for this skill\n\n"
+                    full_content += "```python\n"
+                    full_content += script_content
+                    full_content += "\n```\n\n"
+                    full_content += "**Usage:** Can be executed directly or adapted for the current task\n\n"
+                    full_content += "---\n\n"
+                except Exception as e:
+                    print(f"[WARNING] Could not load {script_file.name}: {e}")
+        
+        return full_content
+    
+    def build_skills_context(self, selected_skills: List[Skill], include_references: bool = True, include_scripts: bool = True) -> str:
+        """
+        Build context string from selected skills with ALL resources (references + scripts)
         
         Args:
             selected_skills: List of skills to include
+            include_references: Whether to include all reference markdown files (default: True)
+            include_scripts: Whether to include all executable Python scripts (default: True)
         
         Returns:
-            Formatted context string for AI
+            Formatted context string for AI with COMPLETE skill content including automation tools
         """
         if not selected_skills:
             return ""
@@ -211,9 +294,21 @@ class SkillLoader:
         context += "The following specialized skills are loaded for this task:\n\n"
         
         for i, skill in enumerate(selected_skills, 1):
-            context += f"## Skill {i}: {skill.name}\n\n"
-            context += skill.content
-            context += "\n\n---\n\n"
+            ref_count = len(skill.reference_files)
+            script_count = len(skill.script_files)
+            
+            context += f"## Skill {i}: {skill.name}\n"
+            context += f"**Resources:** {ref_count} reference docs"
+            if script_count > 0:
+                context += f" + {script_count} automation scripts"
+            context += "\n\n"
+            
+            # Load COMPLETE content: SKILL.md + references + scripts
+            full_content = self.load_skill_content(skill, 
+                                                   include_references=include_references,
+                                                   include_scripts=include_scripts)
+            context += full_content
+            context += "\n\n═══════════════════════════════════════\n\n"
         
         return context
     
